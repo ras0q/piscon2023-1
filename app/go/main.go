@@ -15,6 +15,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/kaz/pprotein/integration"
@@ -1069,6 +1070,7 @@ func getTransactions(w http.ResponseWriter, r *http.Request) {
 
 }
 
+var itemMux = sync.Mutex{}
 var itemCache = sc.NewMust(func(ctx context.Context, itemID int64) (Item, error) {
 	item := Item{}
 	err := dbx.Get(&item, "SELECT * FROM `items` WHERE `id` = ?", itemID)
@@ -1222,7 +1224,11 @@ func postItemEdit(w http.ResponseWriter, r *http.Request) {
 	}
 
 	tx := dbx.MustBegin()
-	err = tx.Get(&targetItem, "SELECT * FROM `items` WHERE `id` = ? FOR UPDATE", itemID)
+
+	itemMux.Lock()
+	defer itemMux.Unlock()
+
+	targetItem, err = itemCache.Get(context.Background(), itemID)
 	if err != nil {
 		log.Print(err)
 
@@ -1348,8 +1354,10 @@ func postBuy(w http.ResponseWriter, r *http.Request) {
 
 	tx := dbx.MustBegin()
 
-	targetItem := Item{}
-	err = tx.Get(&targetItem, "SELECT * FROM `items` WHERE `id` = ? FOR UPDATE", rb.ItemID)
+	itemMux.Lock()
+	defer itemMux.Unlock()
+
+	targetItem, err := itemCache.Get(context.Background(), rb.ItemID)
 	if err == sql.ErrNoRows {
 		outputErrorMsg(w, http.StatusNotFound, "item not found")
 		tx.Rollback()
@@ -1559,8 +1567,10 @@ func postShip(w http.ResponseWriter, r *http.Request) {
 
 	tx := dbx.MustBegin()
 
-	item := Item{}
-	err = tx.Get(&item, "SELECT * FROM `items` WHERE `id` = ? FOR UPDATE", itemID)
+	itemMux.Lock()
+	defer itemMux.Unlock()
+
+	item, err := itemCache.Get(context.Background(), itemID)
 	if err == sql.ErrNoRows {
 		outputErrorMsg(w, http.StatusNotFound, "item not found")
 		tx.Rollback()
@@ -1690,8 +1700,10 @@ func postShipDone(w http.ResponseWriter, r *http.Request) {
 
 	tx := dbx.MustBegin()
 
-	item := Item{}
-	err = tx.Get(&item, "SELECT * FROM `items` WHERE `id` = ? FOR UPDATE", itemID)
+	itemMux.Lock()
+	defer itemMux.Unlock()
+
+	item, err := itemCache.Get(context.Background(), itemID)
 	if err == sql.ErrNoRows {
 		outputErrorMsg(w, http.StatusNotFound, "items not found")
 		tx.Rollback()
@@ -1835,8 +1847,11 @@ func postComplete(w http.ResponseWriter, r *http.Request) {
 	}
 
 	tx := dbx.MustBegin()
-	item := Item{}
-	err = tx.Get(&item, "SELECT * FROM `items` WHERE `id` = ? FOR UPDATE", itemID)
+
+	itemMux.Lock()
+	defer itemMux.Unlock()
+
+	item, err := itemCache.Get(context.Background(), itemID)
 	if err == sql.ErrNoRows {
 		outputErrorMsg(w, http.StatusNotFound, "items not found")
 		tx.Rollback()
@@ -2120,8 +2135,10 @@ func postBump(w http.ResponseWriter, r *http.Request) {
 
 	tx := dbx.MustBegin()
 
-	targetItem := Item{}
-	err = tx.Get(&targetItem, "SELECT * FROM `items` WHERE `id` = ? FOR UPDATE", itemID)
+	itemMux.Lock()
+	defer itemMux.Unlock()
+
+	targetItem, err := itemCache.Get(r.Context(), itemID)
 	if err == sql.ErrNoRows {
 		outputErrorMsg(w, http.StatusNotFound, "item not found")
 		tx.Rollback()
