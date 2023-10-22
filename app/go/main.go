@@ -14,6 +14,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"time"
+	"github.com/kaz/pprotein/integration/standalone"
 
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/gorilla/sessions"
@@ -279,6 +280,9 @@ func init() {
 }
 
 func main() {
+	// TODO: remove later
+	go standalone.Integrate(":8888")
+
 	host := os.Getenv("MYSQL_HOST")
 	if host == "" {
 		host = "127.0.0.1"
@@ -356,6 +360,14 @@ func main() {
 	mux.HandleFunc(pat.Get("/users/setting"), getIndex)
 	// Assets
 	mux.Handle(pat.Get("/*"), http.FileServer(http.Dir("../public")))
+
+	// TODO: remove later
+	go func() {
+		if _, err := http.Get("https://ras-pprotein.trap.show/api/group/collect"); err != nil {
+			log.Printf("failed to communicate with pprotein: %v", err)
+		}
+	}()
+
 	log.Fatal(http.ListenAndServe(":8000", mux))
 }
 
