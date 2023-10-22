@@ -118,7 +118,7 @@ type Item struct {
 	TransactionEvidenceStatus sql.NullString `json:"-" db:"te_status"`
 
 	// shipping info
-	ShippingReserveID sql.NullString `json:"-" db:"s_reserve_id"`
+	ShippingStatus sql.NullString `json:"-" db:"s_status"`
 }
 
 type ItemSimple struct {
@@ -943,7 +943,7 @@ func getTransactions(w http.ResponseWriter, r *http.Request) {
 		"u1.account_name AS s_account_name, u1.num_sell_items AS s_num_sell_items, " +
 		"u2.account_name AS b_account_name, u2.num_sell_items AS b_num_sell_items, " +
 		"te.id AS te_id, te.status AS te_status, " +
-		"s.reserve_id AS s_reserve_id " +
+		"s.status AS s_status " +
 		"FROM `items` i " +
 		"LEFT JOIN `users` u1 ON i.seller_id = u1.id " +
 		"LEFT JOIN `users` u2 ON i.buyer_id > 0 AND i.buyer_id = u2.id " +
@@ -1033,20 +1033,10 @@ func getTransactions(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 
-		if item.TransactionEvidenceID.Valid && item.TransactionEvidenceID.Int64 > 0 && item.TransactionEvidenceStatus.Valid && item.ShippingReserveID.Valid {
-			ssr, err := APIShipmentStatus(getShipmentServiceURL(), &APIShipmentStatusReq{
-				ReserveID: item.ShippingReserveID.String,
-			})
-			if err != nil {
-				log.Print(err)
-				outputErrorMsg(w, http.StatusInternalServerError, "failed to request to shipment service")
-				tx.Rollback()
-				return
-			}
-
+		if item.TransactionEvidenceID.Valid && item.TransactionEvidenceID.Int64 > 0 && item.TransactionEvidenceStatus.Valid && item.ShippingStatus.Valid {
 			itemDetail.TransactionEvidenceID = item.TransactionEvidenceID.Int64
 			itemDetail.TransactionEvidenceStatus = item.TransactionEvidenceStatus.String
-			itemDetail.ShippingStatus = ssr.Status
+			itemDetail.ShippingStatus = item.ShippingStatus.String
 		}
 
 		itemDetails = append(itemDetails, itemDetail)
