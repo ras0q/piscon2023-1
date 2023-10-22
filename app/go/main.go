@@ -106,8 +106,8 @@ type Item struct {
 	UpdatedAt   time.Time `json:"-" db:"updated_at"`
 
 	// seller info
-	UserAccountName  string `json:"-" db:"u_account_name"`
-	UserNumSellItems int    `json:"-" db:"u_num_sell_items"`
+	UserAccountName  string `json:"-" db:"s_account_name"`
+	UserNumSellItems int    `json:"-" db:"s_num_sell_items"`
 }
 
 type ItemSimple struct {
@@ -123,8 +123,8 @@ type ItemSimple struct {
 	CreatedAt  int64       `json:"created_at" db:"-"`
 
 	// seller info
-	UserAccountName  string `json:"-" db:"u_account_name"`
-	UserNumSellItems int    `json:"-" db:"u_num_sell_items"`
+	UserAccountName  string `json:"-" db:"s_account_name"`
+	UserNumSellItems int    `json:"-" db:"s_num_sell_items"`
 
 	// category info
 	CategoryParentID int    `json:"-" db:"c_parent_id"`
@@ -698,7 +698,7 @@ func getNewCategoryItems(w http.ResponseWriter, r *http.Request) {
 	var inArgs []interface{}
 	baseInQuery := "SELECT " +
 		"i.*, " +
-		"u.account_name AS u_account_name, u.num_sell_items AS u_num_sell_items " +
+		"u.account_name AS s_account_name, u.num_sell_items AS s_num_sell_items " +
 		"FROM `items` i " +
 		"LEFT JOIN `users` u ON i.seller_id = u.id " +
 		"WHERE `status` IN (?,?) AND category_id IN (?) "
@@ -953,7 +953,7 @@ func getTransactions(w http.ResponseWriter, r *http.Request) {
 	} else {
 		// 1st page
 		err := tx.Select(&items,
-			"SELECT i.*, u.account_name AS u_account_name, u.num_sell_items AS u_num_sell_items FROM `items` i JOIN `users` u ON i.seller_id = u.id WHERE (i.`seller_id` = ? OR i.`buyer_id` = ?) AND i.`status` IN (?,?,?,?,?) ORDER BY i.`created_at` DESC, i.`id` DESC LIMIT ?",
+			"SELECT i.*, u.account_name AS s_account_name, u.num_sell_items AS s_num_sell_items FROM `items` i JOIN `users` u ON i.seller_id = u.id WHERE (i.`seller_id` = ? OR i.`buyer_id` = ?) AND i.`status` IN (?,?,?,?,?) ORDER BY i.`created_at` DESC, i.`id` DESC LIMIT ?",
 			user.ID,
 			user.ID,
 			ItemStatusOnSale,
