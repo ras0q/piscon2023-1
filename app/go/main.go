@@ -1024,7 +1024,7 @@ func getTransactions(w http.ResponseWriter, r *http.Request) {
 			CreatedAt: item.CreatedAt.Unix(),
 		}
 
-		if item.BuyerID != 0 {
+		if item.BuyerID != 0 && item.BuyerAccountName.Valid && item.BuyerNumSellItems.Valid {
 			itemDetail.BuyerID = item.BuyerID
 			itemDetail.Buyer = &UserSimple{
 				ID:           item.BuyerID,
