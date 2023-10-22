@@ -671,7 +671,7 @@ func getNewCategoryItems(w http.ResponseWriter, r *http.Request) {
 		"c.parent_id AS c_parent_id, c.category_name AS c_category_name " +
 		"FROM `items` i " +
 		"LEFT JOIN `users` u ON i.seller_id = u.id " +
-		"LEFT JOIN `categories` c ON i.category_id " +
+		"LEFT JOIN `categories` c ON i.category_id = c.id " +
 		"WHERE `status` IN (?,?) AND category_id IN (?) "
 	if itemID > 0 && createdAt > 0 {
 		// paging
