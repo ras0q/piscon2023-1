@@ -4,6 +4,7 @@ set -aux
 
 sudo cp ../common/etc/nginx/nginx.conf /etc/nginx/nginx.conf
 
+export PPROTEIN_GIT_REPOSITORY="/home/isucon/piscon2023-1"
 export GOROOT=""
 export GOPROXY=https://proxy.golang.org,direct
 cd ../app/go && go build -o isucari
