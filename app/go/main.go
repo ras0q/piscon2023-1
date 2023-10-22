@@ -106,8 +106,12 @@ type Item struct {
 	UpdatedAt   time.Time `json:"-" db:"updated_at"`
 
 	// seller info
-	UserAccountName  string `json:"-" db:"s_account_name"`
-	UserNumSellItems int    `json:"-" db:"s_num_sell_items"`
+	SellerAccountName  string `json:"-" db:"s_account_name"`
+	SellerNumSellItems int    `json:"-" db:"s_num_sell_items"`
+
+	// buyer info
+	BuyerAccountName  string `json:"-" db:"b_account_name"`
+	BuyerNumSellItems int    `json:"-" db:"b_num_sell_items"`
 }
 
 type ItemSimple struct {
@@ -757,8 +761,8 @@ func getNewCategoryItems(w http.ResponseWriter, r *http.Request) {
 			SellerID: item.SellerID,
 			Seller: &UserSimple{
 				ID:           item.SellerID,
-				AccountName:  item.UserAccountName,
-				NumSellItems: item.UserNumSellItems,
+				AccountName:  item.SellerAccountName,
+				NumSellItems: item.SellerNumSellItems,
 			},
 			Status:     item.Status,
 			Name:       item.Name,
@@ -953,7 +957,7 @@ func getTransactions(w http.ResponseWriter, r *http.Request) {
 	} else {
 		// 1st page
 		err := tx.Select(&items,
-			"SELECT i.*, u.account_name AS s_account_name, u.num_sell_items AS s_num_sell_items FROM `items` i JOIN `users` u ON i.seller_id = u.id WHERE (i.`seller_id` = ? OR i.`buyer_id` = ?) AND i.`status` IN (?,?,?,?,?) ORDER BY i.`created_at` DESC, i.`id` DESC LIMIT ?",
+			"SELECT i.*, u1.account_name AS s_account_name, u1.num_sell_items AS s_num_sell_items, u2.account_name AS b_account_name, u2.num_sell_items AS b_num_sell_items FROM `items` i JOIN `users` u1 ON i.seller_id = u1.id JOIN `users` u2 ON i.buyer_id > 0 AND i.buyer_id = u2.id WHERE (i.`seller_id` = ? OR i.`buyer_id` = ?) AND i.`status` IN (?,?,?,?,?) ORDER BY i.`created_at` DESC, i.`id` DESC LIMIT ?",
 			user.ID,
 			user.ID,
 			ItemStatusOnSale,
@@ -985,8 +989,8 @@ func getTransactions(w http.ResponseWriter, r *http.Request) {
 			SellerID: item.SellerID,
 			Seller: &UserSimple{
 				ID:           item.SellerID,
-				AccountName:  item.UserAccountName,
-				NumSellItems: item.UserNumSellItems,
+				AccountName:  item.SellerAccountName,
+				NumSellItems: item.SellerNumSellItems,
 			},
 			// BuyerID
 			// Buyer
@@ -1004,14 +1008,12 @@ func getTransactions(w http.ResponseWriter, r *http.Request) {
 		}
 
 		if item.BuyerID != 0 {
-			buyer, err := getUserSimpleByID(tx, item.BuyerID)
-			if err != nil {
-				outputErrorMsg(w, http.StatusNotFound, "buyer not found")
-				tx.Rollback()
-				return
-			}
 			itemDetail.BuyerID = item.BuyerID
-			itemDetail.Buyer = &buyer
+			itemDetail.Buyer = &UserSimple{
+				ID:           item.BuyerID,
+				AccountName:  item.BuyerAccountName,
+				NumSellItems: item.BuyerNumSellItems,
+			}
 		}
 
 		transactionEvidence := TransactionEvidence{}
