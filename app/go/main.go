@@ -1,3 +1,4 @@
+//nolint:ifshort,errcheck,revive
 package main
 
 import (
@@ -100,19 +101,35 @@ type Item struct {
 	CategoryID  int       `json:"category_id" db:"category_id"`
 	CreatedAt   time.Time `json:"-" db:"created_at"`
 	UpdatedAt   time.Time `json:"-" db:"updated_at"`
+
+	// seller info
+	UserAccountName  string `json:"-" db:"u_account_name"`
+	UserNumSellItems int    `json:"-" db:"u_num_sell_items"`
+
+	// category info
+	CategoryParentID int    `json:"-" db:"c_parent_id"`
+	CategoryName     string `json:"-" db:"c_category_name"`
 }
 
 type ItemSimple struct {
-	ID         int64       `json:"id"`
-	SellerID   int64       `json:"seller_id"`
-	Seller     *UserSimple `json:"seller"`
-	Status     string      `json:"status"`
-	Name       string      `json:"name"`
-	Price      int         `json:"price"`
-	ImageURL   string      `json:"image_url"`
-	CategoryID int         `json:"category_id"`
-	Category   *Category   `json:"category"`
-	CreatedAt  int64       `json:"created_at"`
+	ID         int64       `json:"id" db:"id"`
+	SellerID   int64       `json:"seller_id" db:"seller_id"`
+	Seller     *UserSimple `json:"seller" db:"-"`
+	Status     string      `json:"status" db:"status"`
+	Name       string      `json:"name" db:"name"`
+	Price      int         `json:"price" db:"price"`
+	ImageURL   string      `json:"image_url" db:"-"`
+	CategoryID int         `json:"category_id" db:"category_id"`
+	Category   *Category   `json:"category" db:"-"`
+	CreatedAt  int64       `json:"created_at" db:"-"`
+
+	// seller info
+	UserAccountName  string `json:"-" db:"u_account_name"`
+	UserNumSellItems int    `json:"-" db:"u_num_sell_items"`
+
+	// category info
+	CategoryParentID int    `json:"-" db:"c_parent_id"`
+	CategoryName     string `json:"-" db:"c_category_name"`
 }
 
 type ItemDetail struct {
@@ -655,10 +672,18 @@ func getNewCategoryItems(w http.ResponseWriter, r *http.Request) {
 
 	var inQuery string
 	var inArgs []interface{}
+	baseInQuery := "SELECT " +
+		"i.*, " +
+		"u.account_name AS u_account_name, u.num_sell_items AS u_num_sell_items, " +
+		"c.parent_id AS c.parent_id, c.category_name AS c_category_name " +
+		"FROM `items` i " +
+		"LEFT JOIN `users` u ON i.seller_id = u.id " +
+		"LEFT JOIN `categories` c ON i.category_id " +
+		"WHERE `status` IN (?,?) AND category_id IN (?) "
 	if itemID > 0 && createdAt > 0 {
 		// paging
 		inQuery, inArgs, err = sqlx.In(
-			"SELECT * FROM `items` WHERE `status` IN (?,?) AND category_id IN (?) AND (`created_at` < ?  OR (`created_at` <= ? AND `id` < ?)) ORDER BY `created_at` DESC, `id` DESC LIMIT ?",
+			baseInQuery+"AND (`created_at` < ?  OR (`created_at` <= ? AND `id` < ?)) ORDER BY `created_at` DESC, `id` DESC LIMIT ?",
 			ItemStatusOnSale,
 			ItemStatusSoldOut,
 			categoryIDs,
@@ -675,7 +700,7 @@ func getNewCategoryItems(w http.ResponseWriter, r *http.Request) {
 	} else {
 		// 1st page
 		inQuery, inArgs, err = sqlx.In(
-			"SELECT * FROM `items` WHERE `status` IN (?,?) AND category_id IN (?) ORDER BY created_at DESC, id DESC LIMIT ?",
+			baseInQuery+"ORDER BY created_at DESC, id DESC LIMIT ?",
 			ItemStatusOnSale,
 			ItemStatusSoldOut,
 			categoryIDs,
@@ -699,27 +724,25 @@ func getNewCategoryItems(w http.ResponseWriter, r *http.Request) {
 
 	itemSimples := []ItemSimple{}
 	for _, item := range items {
-		seller, err := getUserSimpleByID(dbx, item.SellerID)
-		if err != nil {
-			outputErrorMsg(w, http.StatusNotFound, "seller not found")
-			return
-		}
-		category, err := getCategoryByID(dbx, item.CategoryID)
-		if err != nil {
-			outputErrorMsg(w, http.StatusNotFound, "category not found")
-			return
-		}
 		itemSimples = append(itemSimples, ItemSimple{
-			ID:         item.ID,
-			SellerID:   item.SellerID,
-			Seller:     &seller,
+			ID:       item.ID,
+			SellerID: item.SellerID,
+			Seller: &UserSimple{
+				ID:           item.SellerID,
+				AccountName:  item.UserAccountName,
+				NumSellItems: item.UserNumSellItems,
+			},
 			Status:     item.Status,
 			Name:       item.Name,
 			Price:      item.Price,
 			ImageURL:   getImageURL(item.ImageName),
 			CategoryID: item.CategoryID,
-			Category:   &category,
-			CreatedAt:  item.CreatedAt.Unix(),
+			Category: &Category{
+				ID:           item.CategoryID,
+				ParentID:     item.CategoryParentID,
+				CategoryName: item.CategoryName,
+			},
+			CreatedAt: item.CreatedAt.Unix(),
 		})
 	}
 
