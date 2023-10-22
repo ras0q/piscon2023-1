@@ -434,15 +434,12 @@ func getUserSimpleByID(q sqlx.Queryer, userID int64) (userSimple UserSimple, err
 }
 
 func getCategoryByID(q sqlx.Queryer, categoryID int) (category Category, err error) {
-	err = sqlx.Get(q, &category, "SELECT * FROM `categories` WHERE `id` = ?", categoryID)
-	if category.ParentID != 0 {
-		parentCategory, err := getCategoryByID(q, category.ParentID)
-		if err != nil {
-			return category, err
-		}
-		category.ParentCategoryName = parentCategory.CategoryName
+	category, ok := categoryMap[categoryID]
+	if !ok {
+		return category, fmt.Errorf("category not found")
 	}
-	return category, err
+
+	return category, nil
 }
 
 func getConfigByName(name string) (string, error) {
@@ -477,6 +474,11 @@ func getShipmentServiceURL() string {
 func getIndex(w http.ResponseWriter, r *http.Request) {
 	templates.ExecuteTemplate(w, "index.html", struct{}{})
 }
+
+var (
+	categories  = []Category{}
+	categoryMap = map[int]Category{}
+)
 
 func postInitialize(w http.ResponseWriter, r *http.Request) {
 	ri := reqInitialize{}
@@ -516,6 +518,30 @@ func postInitialize(w http.ResponseWriter, r *http.Request) {
 		outputErrorMsg(w, http.StatusInternalServerError, "db error")
 		return
 	}
+
+	// make category map cache
+	func() {
+		err = dbx.Select(&categories, "SELECT * FROM `categories`")
+		if err != nil {
+			log.Print(err)
+			outputErrorMsg(w, http.StatusInternalServerError, "db error")
+			return
+		}
+		categoryMap = lo.SliceToMap(categories, func(c Category) (int, Category) {
+			return c.ID, c
+		})
+		for k, c := range categoryMap {
+			if c.ParentID != 0 {
+				parentCategory, ok := categoryMap[c.ParentID]
+				if !ok {
+					outputErrorMsg(w, http.StatusInternalServerError, "map error")
+					return
+				}
+				c.ParentCategoryName = parentCategory.CategoryName
+				categoryMap[k] = c
+			}
+		}
+	}()
 
 	go http.Get("https://ras-pprotein.trap.show/api/group/collect")
 
@@ -640,12 +666,11 @@ func getNewCategoryItems(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var categoryIDs []int
-	err = dbx.Select(&categoryIDs, "SELECT id FROM `categories` WHERE parent_id=?", rootCategory.ID)
-	if err != nil {
-		log.Print(err)
-		outputErrorMsg(w, http.StatusInternalServerError, "db error")
-		return
+	categoryIDs := make([]int, 0, 100)
+	for _, c := range categories {
+		if c.ParentID == rootCategoryID {
+			categoryIDs = append(categoryIDs, c.ID)
+		}
 	}
 
 	query := r.URL.Query()
@@ -719,22 +744,11 @@ func getNewCategoryItems(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	categories := []Category{}
-	err = dbx.Select(&categories, "SELECT * FROM `categories`")
-	if err != nil {
-		log.Print(err)
-		outputErrorMsg(w, http.StatusInternalServerError, "db error")
-		return
-	}
-	categoryMap := lo.SliceToMap(categories, func(c Category) (int, Category) {
-		return c.ID, c
-	})
-
 	itemSimples := []ItemSimple{}
 	for _, item := range items {
-		c, ok := categoryMap[item.CategoryID]
-		if !ok {
-			outputErrorMsg(w, http.StatusInternalServerError, "map error")
+		category, err := getCategoryByID(dbx, item.CategoryID)
+		if err != nil {
+			outputErrorMsg(w, http.StatusNotFound, "category not found")
 			return
 		}
 
@@ -751,23 +765,8 @@ func getNewCategoryItems(w http.ResponseWriter, r *http.Request) {
 			Price:      item.Price,
 			ImageURL:   getImageURL(item.ImageName),
 			CategoryID: item.CategoryID,
-			Category: &Category{
-				ID:           item.CategoryID,
-				ParentID:     c.ParentID,
-				CategoryName: c.CategoryName,
-				ParentCategoryName: func() string {
-					if c.ParentID == 0 {
-						return ""
-					}
-					pc, ok := categoryMap[c.ParentID]
-					if !ok {
-						outputErrorMsg(w, http.StatusInternalServerError, "map error")
-						return ""
-					}
-					return pc.CategoryName
-				}(),
-			},
-			CreatedAt: item.CreatedAt.Unix(),
+			Category:   &category,
+			CreatedAt:  item.CreatedAt.Unix(),
 		})
 	}
 
@@ -2214,14 +2213,6 @@ func getSettings(w http.ResponseWriter, r *http.Request) {
 
 	ress.PaymentServiceURL = getPaymentServiceURL()
 
-	categories := []Category{}
-
-	err := dbx.Select(&categories, "SELECT * FROM `categories`")
-	if err != nil {
-		log.Print(err)
-		outputErrorMsg(w, http.StatusInternalServerError, "db error")
-		return
-	}
 	ress.Categories = categories
 
 	w.Header().Set("Content-Type", "application/json;charset=utf-8")
