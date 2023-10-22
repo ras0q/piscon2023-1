@@ -1069,6 +1069,15 @@ func getTransactions(w http.ResponseWriter, r *http.Request) {
 
 }
 
+var itemCache = sc.NewMust(func(ctx context.Context, itemID int64) (Item, error) {
+	item := Item{}
+	err := dbx.Get(&item, "SELECT * FROM `items` WHERE `id` = ?", itemID)
+	if err != nil {
+		return Item{}, err
+	}
+	return item, nil
+}, time.Minute, time.Minute)
+
 func getItem(w http.ResponseWriter, r *http.Request) {
 	itemIDStr := pat.Param(r, "item_id")
 	itemID, err := strconv.ParseInt(itemIDStr, 10, 64)
@@ -1083,8 +1092,7 @@ func getItem(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	item := Item{}
-	err = dbx.Get(&item, "SELECT * FROM `items` WHERE `id` = ?", itemID)
+	item, err := itemCache.Get(context.Background(), itemID)
 	if err == sql.ErrNoRows {
 		outputErrorMsg(w, http.StatusNotFound, "item not found")
 		return
@@ -1196,8 +1204,7 @@ func postItemEdit(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	targetItem := Item{}
-	err = dbx.Get(&targetItem, "SELECT * FROM `items` WHERE `id` = ?", itemID)
+	targetItem, err := itemCache.Get(context.Background(), itemID)
 	if err == sql.ErrNoRows {
 		outputErrorMsg(w, http.StatusNotFound, "item not found")
 		return
@@ -1243,15 +1250,15 @@ func postItemEdit(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = tx.Get(&targetItem, "SELECT * FROM `items` WHERE `id` = ?", itemID)
+	tx.Commit()
+	itemCache.Forget(itemID)
+
+	targetItem, err = itemCache.Get(context.Background(), itemID)
 	if err != nil {
 		log.Print(err)
 		outputErrorMsg(w, http.StatusInternalServerError, "db error")
-		tx.Rollback()
 		return
 	}
-
-	tx.Commit()
 
 	w.Header().Set("Content-Type", "application/json;charset=utf-8")
 	json.NewEncoder(w).Encode(&resItemEdit{
@@ -1502,6 +1509,7 @@ func postBuy(w http.ResponseWriter, r *http.Request) {
 	}
 
 	tx.Commit()
+	itemCache.Forget(targetItem.ID)
 
 	w.Header().Set("Content-Type", "application/json;charset=utf-8")
 	json.NewEncoder(w).Encode(resBuy{TransactionEvidenceID: transactionEvidenceID})
@@ -1932,6 +1940,7 @@ func postComplete(w http.ResponseWriter, r *http.Request) {
 	}
 
 	tx.Commit()
+	itemCache.Forget(itemID)
 
 	w.Header().Set("Content-Type", "application/json;charset=utf-8")
 	json.NewEncoder(w).Encode(resBuy{TransactionEvidenceID: transactionEvidence.ID})
@@ -2174,16 +2183,16 @@ func postBump(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = tx.Get(&targetItem, "SELECT * FROM `items` WHERE `id` = ?", itemID)
+	tx.Commit()
+	itemCache.Forget(targetItem.ID)
+	userCache.Forget(seller.ID)
+
+	targetItem, err = itemCache.Get(r.Context(), targetItem.ID)
 	if err != nil {
 		log.Print(err)
-		outputErrorMsg(w, http.StatusInternalServerError, "db error")
-		tx.Rollback()
+		outputErrorMsg(w, http.StatusInternalServerError, "cache error")
 		return
 	}
-
-	tx.Commit()
-	userCache.Forget(seller.ID)
 
 	w.Header().Set("Content-Type", "application/json;charset=utf-8")
 	json.NewEncoder(w).Encode(&resItemEdit{
