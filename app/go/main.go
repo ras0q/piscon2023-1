@@ -356,10 +356,10 @@ func main() {
 	mux.HandleFunc(pat.Get("/transactions/:transaction_id"), getIndex)
 	mux.HandleFunc(pat.Get("/users/:user_id"), getIndex)
 	mux.HandleFunc(pat.Get("/users/setting"), getIndex)
-	// Assets
-	mux.Handle(pat.Get("/*"), http.FileServer(http.Dir("/home/isucon/isucari/webapp/public")))
 	// pprotein
 	mux.Handle(pat.Get("/debug/*"), integration.NewDebugHandler())
+	// Assets
+	mux.Handle(pat.Get("/*"), http.FileServer(http.Dir("/home/isucon/isucari/webapp/public")))
 
 	// TODO: remove later
 	go func() {
