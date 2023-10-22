@@ -664,7 +664,7 @@ func getNewCategoryItems(w http.ResponseWriter, r *http.Request) {
 	var inArgs []interface{}
 	baseInQuery := "SELECT " +
 		"i.*, " +
-		"u.account_name AS u_account_name, u.num_sell_items AS u_num_sell_items, " +
+		"u.account_name AS u_account_name, u.num_sell_items AS u_num_sell_items " +
 		"FROM `items` i " +
 		"LEFT JOIN `users` u ON i.seller_id = u.id " +
 		"WHERE `status` IN (?,?) AND category_id IN (?) "
