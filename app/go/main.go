@@ -966,7 +966,7 @@ func getTransactions(w http.ResponseWriter, r *http.Request) {
 		err := tx.Select(&items,
 			"SELECT i.*, "+
 				"u1.account_name AS s_account_name, u1.num_sell_items AS s_num_sell_items, "+
-				"u2.account_name AS b_account_name, u2.num_sell_items AS b_num_sell_items "+
+				"u2.account_name AS b_account_name, u2.num_sell_items AS b_num_sell_items, "+
 				"te.id AS te_id, te.status AS te_status, "+
 				"s.reserve_id AS s_reserve_id "+
 				"FROM `items` i "+
