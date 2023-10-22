@@ -15,7 +15,7 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/kaz/pprotein/integration/standalone"
+	"github.com/kaz/pprotein/integration"
 
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/gorilla/sessions"
@@ -281,9 +281,6 @@ func init() {
 }
 
 func main() {
-	// TODO: remove later
-	go standalone.Integrate(":8888")
-
 	host := os.Getenv("MYSQL_HOST")
 	if host == "" {
 		host = "127.0.0.1"
@@ -361,6 +358,8 @@ func main() {
 	mux.HandleFunc(pat.Get("/users/setting"), getIndex)
 	// Assets
 	mux.Handle(pat.Get("/*"), http.FileServer(http.Dir("/home/isucon/isucari/webapp/public")))
+	// pprotein
+	mux.Handle(pat.Get("/debug/*"), integration.NewDebugHandler())
 
 	// TODO: remove later
 	go func() {
