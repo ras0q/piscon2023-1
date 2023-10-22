@@ -11,6 +11,7 @@ require (
 	github.com/samber/lo v1.38.1
 	goji.io v2.0.2+incompatible
 	golang.org/x/crypto v0.0.0-20211215153901-e495a2d5b3d3
+	golang.org/x/sync v0.0.0-20220601150217-0de741cfad7f
 )
 
 require (
