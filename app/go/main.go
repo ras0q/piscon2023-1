@@ -939,10 +939,20 @@ func getTransactions(w http.ResponseWriter, r *http.Request) {
 
 	tx := dbx.MustBegin()
 	items := []Item{}
+	baseQuery := "SELECT i.*, " +
+		"u1.account_name AS s_account_name, u1.num_sell_items AS s_num_sell_items, " +
+		"u2.account_name AS b_account_name, u2.num_sell_items AS b_num_sell_items, " +
+		"te.id AS te_id, te.status AS te_status, " +
+		"s.reserve_id AS s_reserve_id " +
+		"FROM `items` i " +
+		"LEFT JOIN `users` u1 ON i.seller_id = u1.id " +
+		"LEFT JOIN `users` u2 ON i.buyer_id > 0 AND i.buyer_id = u2.id " +
+		"LEFT JOIN `transaction_evidences` te ON i.id = te.item_id " +
+		"LEFT JOIN `shippings` s ON te.id > 0 AND te.id = s.transaction_evidence_id "
 	if itemID > 0 && createdAt > 0 {
 		// paging
 		err := tx.Select(&items,
-			"SELECT * FROM `items` WHERE (`seller_id` = ? OR `buyer_id` = ?) AND `status` IN (?,?,?,?,?) AND (`created_at` < ?  OR (`created_at` <= ? AND `id` < ?)) ORDER BY `created_at` DESC, `id` DESC LIMIT ?",
+			baseQuery+"WHERE (i.`seller_id` = ? OR i.`buyer_id` = ?) AND i.`status` IN (?,?,?,?,?) AND (i.`created_at` < ?  OR (i.`created_at` <= ? AND i.`id` < ?)) ORDER BY i.`created_at` DESC, i.`id` DESC LIMIT ?",
 			user.ID,
 			user.ID,
 			ItemStatusOnSale,
@@ -964,17 +974,7 @@ func getTransactions(w http.ResponseWriter, r *http.Request) {
 	} else {
 		// 1st page
 		err := tx.Select(&items,
-			"SELECT i.*, "+
-				"u1.account_name AS s_account_name, u1.num_sell_items AS s_num_sell_items, "+
-				"u2.account_name AS b_account_name, u2.num_sell_items AS b_num_sell_items, "+
-				"te.id AS te_id, te.status AS te_status, "+
-				"s.reserve_id AS s_reserve_id "+
-				"FROM `items` i "+
-				"LEFT JOIN `users` u1 ON i.seller_id = u1.id "+
-				"LEFT JOIN `users` u2 ON i.buyer_id > 0 AND i.buyer_id = u2.id "+
-				"LEFT JOIN `transaction_evidences` te ON i.id = te.item_id "+
-				"LEFT JOIN `shippings` s ON te.id > 0 AND te.id = s.transaction_evidence_id "+
-				"WHERE (i.`seller_id` = ? OR i.`buyer_id` = ?) AND i.`status` IN (?,?,?,?,?) ORDER BY i.`created_at` DESC, i.`id` DESC LIMIT ?",
+			baseQuery+"WHERE (i.`seller_id` = ? OR i.`buyer_id` = ?) AND i.`status` IN (?,?,?,?,?) ORDER BY i.`created_at` DESC, i.`id` DESC LIMIT ?",
 			user.ID,
 			user.ID,
 			ItemStatusOnSale,
