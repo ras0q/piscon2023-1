@@ -1,7 +1,11 @@
 #!/bin/bash
 
+set -aux
+
 sudo cp ../common/etc/nginx/nginx.conf /etc/nginx/nginx.conf
 
+export GOROOT=""
+export GOPROXY=https://proxy.golang.org,direct
 cd ../app/go && go build -o isucari
 
 # log
