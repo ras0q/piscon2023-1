@@ -957,7 +957,7 @@ func getTransactions(w http.ResponseWriter, r *http.Request) {
 	} else {
 		// 1st page
 		err := tx.Select(&items,
-			"SELECT i.*, u1.account_name AS s_account_name, u1.num_sell_items AS s_num_sell_items, u2.account_name AS b_account_name, u2.num_sell_items AS b_num_sell_items FROM `items` i LEFT JOIN `users` u1 ON i.seller_id = u1.id JOIN `users` u2 ON i.buyer_id > 0 AND i.buyer_id = u2.id WHERE (i.`seller_id` = ? OR i.`buyer_id` = ?) AND i.`status` IN (?,?,?,?,?) ORDER BY i.`created_at` DESC, i.`id` DESC LIMIT ?",
+			"SELECT i.*, u1.account_name AS s_account_name, u1.num_sell_items AS s_num_sell_items, u2.account_name AS b_account_name, u2.num_sell_items AS b_num_sell_items FROM `items` i LEFT JOIN `users` u1 ON i.seller_id = u1.id LEFT JOIN `users` u2 ON i.buyer_id > 0 AND i.buyer_id = u2.id WHERE (i.`seller_id` = ? OR i.`buyer_id` = ?) AND i.`status` IN (?,?,?,?,?) ORDER BY i.`created_at` DESC, i.`id` DESC LIMIT ?",
 			user.ID,
 			user.ID,
 			ItemStatusOnSale,
