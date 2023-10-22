@@ -1033,7 +1033,7 @@ func getTransactions(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 
-		if item.TransactionEvidenceID.Valid && item.TransactionEvidenceStatus.Valid && item.ShippingReserveID.Valid {
+		if item.TransactionEvidenceID.Valid && item.TransactionEvidenceID.Int64 > 0 && item.TransactionEvidenceStatus.Valid && item.ShippingReserveID.Valid {
 			ssr, err := APIShipmentStatus(getShipmentServiceURL(), &APIShipmentStatusReq{
 				ReserveID: item.ShippingReserveID.String,
 			})
