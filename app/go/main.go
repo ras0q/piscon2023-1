@@ -112,6 +112,13 @@ type Item struct {
 	// buyer info
 	BuyerAccountName  sql.NullString `json:"-" db:"b_account_name"`
 	BuyerNumSellItems sql.NullInt64  `json:"-" db:"b_num_sell_items"`
+
+	// transaction evidence info
+	TransactionEvidenceID     sql.NullInt64  `json:"-" db:"te_id"`
+	TransactionEvidenceStatus sql.NullString `json:"-" db:"te_status"`
+
+	// shipping info
+	ShippingReserveID sql.NullString `json:"-" db:"s_reserve_id"`
 }
 
 type ItemSimple struct {
@@ -960,9 +967,13 @@ func getTransactions(w http.ResponseWriter, r *http.Request) {
 			"SELECT i.*, "+
 				"u1.account_name AS s_account_name, u1.num_sell_items AS s_num_sell_items, "+
 				"u2.account_name AS b_account_name, u2.num_sell_items AS b_num_sell_items "+
+				"te.id AS te_id, te.status AS te_status, "+
+				"s.reserve_id AS s_reserve_id "+
 				"FROM `items` i "+
 				"LEFT JOIN `users` u1 ON i.seller_id = u1.id "+
 				"LEFT JOIN `users` u2 ON i.buyer_id > 0 AND i.buyer_id = u2.id "+
+				"LEFT JOIN `transaction_evidences` te ON i.id = te.item_id "+
+				"LEFT JOIN `shippings` s ON te.id > 0 AND te.id = s.transaction_evidence_id "+
 				"WHERE (i.`seller_id` = ? OR i.`buyer_id` = ?) AND i.`status` IN (?,?,?,?,?) ORDER BY i.`created_at` DESC, i.`id` DESC LIMIT ?",
 			user.ID,
 			user.ID,
@@ -1022,32 +1033,9 @@ func getTransactions(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 
-		transactionEvidence := TransactionEvidence{}
-		err = tx.Get(&transactionEvidence, "SELECT * FROM `transaction_evidences` WHERE `item_id` = ?", item.ID)
-		if err != nil && err != sql.ErrNoRows {
-			// It's able to ignore ErrNoRows
-			log.Print(err)
-			outputErrorMsg(w, http.StatusInternalServerError, "db error")
-			tx.Rollback()
-			return
-		}
-
-		if transactionEvidence.ID > 0 {
-			shipping := Shipping{}
-			err = tx.Get(&shipping, "SELECT * FROM `shippings` WHERE `transaction_evidence_id` = ?", transactionEvidence.ID)
-			if err == sql.ErrNoRows {
-				outputErrorMsg(w, http.StatusNotFound, "shipping not found")
-				tx.Rollback()
-				return
-			}
-			if err != nil {
-				log.Print(err)
-				outputErrorMsg(w, http.StatusInternalServerError, "db error")
-				tx.Rollback()
-				return
-			}
+		if item.TransactionEvidenceID.Valid && item.TransactionEvidenceStatus.Valid && item.ShippingReserveID.Valid {
 			ssr, err := APIShipmentStatus(getShipmentServiceURL(), &APIShipmentStatusReq{
-				ReserveID: shipping.ReserveID,
+				ReserveID: item.ShippingReserveID.String,
 			})
 			if err != nil {
 				log.Print(err)
@@ -1056,8 +1044,8 @@ func getTransactions(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 
-			itemDetail.TransactionEvidenceID = transactionEvidence.ID
-			itemDetail.TransactionEvidenceStatus = transactionEvidence.Status
+			itemDetail.TransactionEvidenceID = item.TransactionEvidenceID.Int64
+			itemDetail.TransactionEvidenceStatus = item.TransactionEvidenceStatus.String
 			itemDetail.ShippingStatus = ssr.Status
 		}
 
