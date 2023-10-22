@@ -1,0 +1,6 @@
+matching_groups:
+  - /items/[0-9]+.json
+  - /new_items/[0-9]+.json
+  - /users/[0-9]+.json
+  - /transactions/[0-9]+.png
+  - /upload/.+.jpg
