@@ -671,7 +671,7 @@ func getNewCategoryItems(w http.ResponseWriter, r *http.Request) {
 	if itemID > 0 && createdAt > 0 {
 		// paging
 		inQuery, inArgs, err = sqlx.In(
-			baseInQuery+"AND (`created_at` < ?  OR (`created_at` <= ? AND `id` < ?)) ORDER BY `created_at` DESC, `id` DESC LIMIT ?",
+			baseInQuery+"AND (i.`created_at` < ?  OR (i.`created_at` <= ? AND i.`id` < ?)) ORDER BY i.`created_at` DESC, i.`id` DESC LIMIT ?",
 			ItemStatusOnSale,
 			ItemStatusSoldOut,
 			categoryIDs,
@@ -688,7 +688,7 @@ func getNewCategoryItems(w http.ResponseWriter, r *http.Request) {
 	} else {
 		// 1st page
 		inQuery, inArgs, err = sqlx.In(
-			baseInQuery+"ORDER BY created_at DESC, id DESC LIMIT ?",
+			baseInQuery+"ORDER BY i.`created_at` DESC, i.id DESC LIMIT ?",
 			ItemStatusOnSale,
 			ItemStatusSoldOut,
 			categoryIDs,
