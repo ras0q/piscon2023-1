@@ -7,6 +7,7 @@ require (
 	github.com/gorilla/sessions v1.2.0
 	github.com/jmoiron/sqlx v1.2.0
 	github.com/kaz/pprotein v1.1.0
+	github.com/motoki317/sc v1.6.0
 	github.com/samber/lo v1.38.1
 	goji.io v2.0.2+incompatible
 	golang.org/x/crypto v0.0.0-20211215153901-e495a2d5b3d3

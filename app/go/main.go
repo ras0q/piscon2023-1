@@ -2,6 +2,7 @@
 package main
 
 import (
+	"context"
 	crand "crypto/rand"
 	"database/sql"
 	"encoding/json"
@@ -17,6 +18,7 @@ import (
 	"time"
 
 	"github.com/kaz/pprotein/integration"
+	"github.com/motoki317/sc"
 	"github.com/samber/lo"
 
 	_ "github.com/go-sql-driver/mysql"
@@ -395,28 +397,33 @@ func getCSRFToken(r *http.Request) string {
 	return csrfToken.(string)
 }
 
-func getUser(r *http.Request) (user User, errCode int, errMsg string) {
+var userCache = sc.NewMust(func(ctx context.Context, userID int64) (User, error) {
+	user := User{}
+	err := dbx.Get(&user, "SELECT * FROM `users` WHERE `id` = ?", userID)
+	if err != nil {
+		return User{}, err
+	}
+	return user, nil
+}, time.Minute, time.Minute)
+
+func getUser(r *http.Request) (User, int, string) {
 	session := getSession(r)
 	userID, ok := session.Values["user_id"]
 	if !ok {
-		return user, http.StatusNotFound, "no session"
+		return User{}, http.StatusNotFound, "no session"
 	}
 
-	err := dbx.Get(&user, "SELECT * FROM `users` WHERE `id` = ?", userID)
-	if err == sql.ErrNoRows {
-		return user, http.StatusNotFound, "user not found"
-	}
+	user, err := userCache.Get(context.Background(), userID.(int64))
 	if err != nil {
 		log.Print(err)
-		return user, http.StatusInternalServerError, "db error"
+		return User{}, http.StatusInternalServerError, "db error"
 	}
 
 	return user, http.StatusOK, ""
 }
 
 func getUserSimpleByID(q sqlx.Queryer, userID int64) (userSimple UserSimple, err error) {
-	user := User{}
-	err = sqlx.Get(q, &user, "SELECT * FROM `users` WHERE `id` = ?", userID)
+	user, err := userCache.Get(context.Background(), userID)
 	if err != nil {
 		return userSimple, err
 	}
