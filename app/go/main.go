@@ -517,6 +517,8 @@ func postInitialize(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	go http.Get("https://ras-pprotein.trap.show/api/group/collect")
+
 	res := resInitialize{
 		// キャンペーン実施時には還元率の設定を返す。詳しくはマニュアルを参照のこと。
 		Campaign: 0,
