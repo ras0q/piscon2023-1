@@ -110,8 +110,8 @@ type Item struct {
 	SellerNumSellItems int    `json:"-" db:"s_num_sell_items"`
 
 	// buyer info
-	BuyerAccountName  string `json:"-" db:"b_account_name"`
-	BuyerNumSellItems int    `json:"-" db:"b_num_sell_items"`
+	BuyerAccountName  sql.NullString `json:"-" db:"b_account_name"`
+	BuyerNumSellItems sql.NullInt64  `json:"-" db:"b_num_sell_items"`
 }
 
 type ItemSimple struct {
@@ -1011,8 +1011,8 @@ func getTransactions(w http.ResponseWriter, r *http.Request) {
 			itemDetail.BuyerID = item.BuyerID
 			itemDetail.Buyer = &UserSimple{
 				ID:           item.BuyerID,
-				AccountName:  item.BuyerAccountName,
-				NumSellItems: item.BuyerNumSellItems,
+				AccountName:  item.BuyerAccountName.String,
+				NumSellItems: int(item.BuyerNumSellItems.Int64),
 			}
 		}
 
