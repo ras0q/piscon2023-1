@@ -17,6 +17,7 @@ import (
 	"time"
 
 	"github.com/kaz/pprotein/integration"
+	"github.com/samber/lo"
 
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/gorilla/sessions"
@@ -105,10 +106,6 @@ type Item struct {
 	// seller info
 	UserAccountName  string `json:"-" db:"u_account_name"`
 	UserNumSellItems int    `json:"-" db:"u_num_sell_items"`
-
-	// category info
-	CategoryParentID int    `json:"-" db:"c_parent_id"`
-	CategoryName     string `json:"-" db:"c_category_name"`
 }
 
 type ItemSimple struct {
@@ -668,10 +665,8 @@ func getNewCategoryItems(w http.ResponseWriter, r *http.Request) {
 	baseInQuery := "SELECT " +
 		"i.*, " +
 		"u.account_name AS u_account_name, u.num_sell_items AS u_num_sell_items, " +
-		"c.parent_id AS c_parent_id, c.category_name AS c_category_name " +
 		"FROM `items` i " +
 		"LEFT JOIN `users` u ON i.seller_id = u.id " +
-		"LEFT JOIN `categories` c ON i.category_id = c.id " +
 		"WHERE `status` IN (?,?) AND category_id IN (?) "
 	if itemID > 0 && createdAt > 0 {
 		// paging
@@ -715,8 +710,25 @@ func getNewCategoryItems(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	categories := []Category{}
+	err = dbx.Select(&categories, "SELECT * FROM `categories`")
+	if err != nil {
+		log.Print(err)
+		outputErrorMsg(w, http.StatusInternalServerError, "db error")
+		return
+	}
+	categoryMap := lo.SliceToMap(categories, func(c Category) (int, Category) {
+		return c.ID, c
+	})
+
 	itemSimples := []ItemSimple{}
 	for _, item := range items {
+		c, ok := categoryMap[item.CategoryID]
+		if !ok {
+			outputErrorMsg(w, http.StatusInternalServerError, "map error")
+			return
+		}
+
 		itemSimples = append(itemSimples, ItemSimple{
 			ID:       item.ID,
 			SellerID: item.SellerID,
@@ -732,8 +744,19 @@ func getNewCategoryItems(w http.ResponseWriter, r *http.Request) {
 			CategoryID: item.CategoryID,
 			Category: &Category{
 				ID:           item.CategoryID,
-				ParentID:     item.CategoryParentID,
-				CategoryName: item.CategoryName,
+				ParentID:     c.ParentID,
+				CategoryName: c.CategoryName,
+				ParentCategoryName: func() string {
+					if c.ParentID == 0 {
+						return ""
+					}
+					pc, ok := categoryMap[c.ParentID]
+					if !ok {
+						outputErrorMsg(w, http.StatusInternalServerError, "map error")
+						return ""
+					}
+					return pc.CategoryName
+				}(),
 			},
 			CreatedAt: item.CreatedAt.Unix(),
 		})
