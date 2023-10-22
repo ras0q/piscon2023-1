@@ -14,6 +14,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"time"
+
 	"github.com/kaz/pprotein/integration/standalone"
 
 	_ "github.com/go-sql-driver/mysql"
@@ -275,7 +276,7 @@ func init() {
 	log.SetFlags(log.Ldate | log.Ltime | log.Lshortfile)
 
 	templates = template.Must(template.ParseFiles(
-		"../public/index.html",
+		"/home/isucon/isucari/webapp/public/index.html",
 	))
 }
 
@@ -359,7 +360,7 @@ func main() {
 	mux.HandleFunc(pat.Get("/users/:user_id"), getIndex)
 	mux.HandleFunc(pat.Get("/users/setting"), getIndex)
 	// Assets
-	mux.Handle(pat.Get("/*"), http.FileServer(http.Dir("../public")))
+	mux.Handle(pat.Get("/*"), http.FileServer(http.Dir("/home/isucon/isucari/webapp/public")))
 
 	// TODO: remove later
 	go func() {
@@ -473,7 +474,7 @@ func postInitialize(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	cmd := exec.Command("../sql/init.sh")
+	cmd := exec.Command("/home/isucon/isucari/webapp/sql/init.sh")
 	cmd.Stderr = os.Stderr
 	cmd.Stdout = os.Stderr
 	cmd.Run()
@@ -1972,7 +1973,7 @@ func postSell(w http.ResponseWriter, r *http.Request) {
 	}
 
 	imgName := fmt.Sprintf("%s%s", secureRandomStr(16), ext)
-	err = ioutil.WriteFile(fmt.Sprintf("../public/upload/%s", imgName), img, 0644)
+	err = ioutil.WriteFile(fmt.Sprintf("/home/isucon/isucari/webapp/public/upload/%s", imgName), img, 0644)
 	if err != nil {
 		log.Print(err)
 		outputErrorMsg(w, http.StatusInternalServerError, "Saving image failed")
