@@ -675,7 +675,7 @@ func getNewCategoryItems(w http.ResponseWriter, r *http.Request) {
 	baseInQuery := "SELECT " +
 		"i.*, " +
 		"u.account_name AS u_account_name, u.num_sell_items AS u_num_sell_items, " +
-		"c.parent_id AS c.parent_id, c.category_name AS c_category_name " +
+		"c.parent_id AS c_parent_id, c.category_name AS c_category_name " +
 		"FROM `items` i " +
 		"LEFT JOIN `users` u ON i.seller_id = u.id " +
 		"LEFT JOIN `categories` c ON i.category_id " +
