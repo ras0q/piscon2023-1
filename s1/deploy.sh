@@ -22,4 +22,4 @@ sudo systemctl restart mysql.service
 sudo systemctl restart nginx.service
 sudo systemctl restart isucari.golang.service
 
-sudo journalctl -u isucari.golang.service
+sudo journalctl -u isucari.golang.service -f
