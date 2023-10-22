@@ -378,13 +378,6 @@ func main() {
 	// Assets
 	mux.Handle(pat.Get("/*"), http.FileServer(http.Dir("/home/isucon/isucari/webapp/public")))
 
-	// TODO: remove later
-	go func() {
-		if _, err := http.Get("https://ras-pprotein.trap.show/api/group/collect"); err != nil {
-			log.Printf("failed to communicate with pprotein: %v", err)
-		}
-	}()
-
 	log.Fatal(http.ListenAndServe(":8000", mux))
 }
 
