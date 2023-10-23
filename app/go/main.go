@@ -1446,6 +1446,7 @@ func postBuy(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			log.Print(err)
 			outputErrorMsg(w, http.StatusInternalServerError, "failed to request to shipment service")
+			tx.Rollback()
 
 			return err
 		}
@@ -1466,21 +1467,25 @@ func postBuy(w http.ResponseWriter, r *http.Request) {
 			log.Print(err)
 
 			outputErrorMsg(w, http.StatusInternalServerError, "payment service is failed")
+			tx.Rollback()
 			return err
 		}
 
 		if pstr.Status == "invalid" {
 			outputErrorMsg(w, http.StatusBadRequest, "カード情報に誤りがあります")
+			tx.Rollback()
 			return err
 		}
 
 		if pstr.Status == "fail" {
 			outputErrorMsg(w, http.StatusBadRequest, "カードの残高が足りません")
+			tx.Rollback()
 			return err
 		}
 
 		if pstr.Status != "ok" {
 			outputErrorMsg(w, http.StatusBadRequest, "想定外のエラー")
+			tx.Rollback()
 			return err
 		}
 
