@@ -1488,7 +1488,6 @@ func postBuy(w http.ResponseWriter, r *http.Request) {
 	})
 
 	if err := eg.Wait(); err != nil {
-		outputErrorMsg(w, http.StatusInternalServerError, "failed to request to payment service")
 		tx.Rollback()
 		return
 	}
