@@ -1906,40 +1906,55 @@ func postComplete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	_, err = tx.Exec("UPDATE `shippings` SET `status` = ?, `updated_at` = ? WHERE `transaction_evidence_id` = ?",
-		ShippingsStatusDone,
-		time.Now(),
-		transactionEvidence.ID,
-	)
-	if err != nil {
+	eg := errgroup.Group{}
+
+	eg.Go(func() error {
+		_, err = tx.Exec("UPDATE `shippings` SET `status` = ?, `updated_at` = ? WHERE `transaction_evidence_id` = ?",
+			ShippingsStatusDone,
+			time.Now(),
+			transactionEvidence.ID,
+		)
+		if err != nil {
+			log.Print(err)
+
+			outputErrorMsg(w, http.StatusInternalServerError, "db error")
+			return err
+		}
+		return nil
+	})
+
+	eg.Go(func() error {
+		_, err = tx.Exec("UPDATE `transaction_evidences` SET `status` = ?, `updated_at` = ? WHERE `id` = ?",
+			TransactionEvidenceStatusDone,
+			time.Now(),
+			transactionEvidence.ID,
+		)
+		if err != nil {
+			log.Print(err)
+
+			outputErrorMsg(w, http.StatusInternalServerError, "db error")
+			return err
+		}
+		return nil
+	})
+
+	eg.Go(func() error {
+		_, err = tx.Exec("UPDATE `items` SET `status` = ?, `updated_at` = ? WHERE `id` = ?",
+			ItemStatusSoldOut,
+			time.Now(),
+			itemID,
+		)
+		if err != nil {
+			log.Print(err)
+
+			outputErrorMsg(w, http.StatusInternalServerError, "db error")
+			return err
+		}
+		return nil
+	})
+
+	if err := eg.Wait(); err != nil {
 		log.Print(err)
-
-		outputErrorMsg(w, http.StatusInternalServerError, "db error")
-		tx.Rollback()
-		return
-	}
-
-	_, err = tx.Exec("UPDATE `transaction_evidences` SET `status` = ?, `updated_at` = ? WHERE `id` = ?",
-		TransactionEvidenceStatusDone,
-		time.Now(),
-		transactionEvidence.ID,
-	)
-	if err != nil {
-		log.Print(err)
-
-		outputErrorMsg(w, http.StatusInternalServerError, "db error")
-		tx.Rollback()
-		return
-	}
-
-	_, err = tx.Exec("UPDATE `items` SET `status` = ?, `updated_at` = ? WHERE `id` = ?",
-		ItemStatusSoldOut,
-		time.Now(),
-		itemID,
-	)
-	if err != nil {
-		log.Print(err)
-
 		outputErrorMsg(w, http.StatusInternalServerError, "db error")
 		tx.Rollback()
 		return
