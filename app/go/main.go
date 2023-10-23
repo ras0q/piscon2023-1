@@ -1493,7 +1493,6 @@ func postBuy(w http.ResponseWriter, r *http.Request) {
 	})
 
 	if err := eg.Wait(); err != nil {
-		outputErrorMsg(w, http.StatusInternalServerError, "failed to request to payment service")
 		tx.Rollback()
 		return
 	}
@@ -1911,41 +1910,54 @@ func postComplete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	_, err = tx.Exec("UPDATE `shippings` SET `status` = ?, `updated_at` = ? WHERE `transaction_evidence_id` = ?",
-		ShippingsStatusDone,
-		time.Now(),
-		transactionEvidence.ID,
-	)
-	if err != nil {
-		log.Print(err)
+	eg := errgroup.Group{}
 
-		outputErrorMsg(w, http.StatusInternalServerError, "db error")
-		tx.Rollback()
-		return
-	}
+	eg.Go(func() error {
+		_, err = tx.Exec("UPDATE `shippings` SET `status` = ?, `updated_at` = ? WHERE `transaction_evidence_id` = ?",
+			ShippingsStatusDone,
+			time.Now(),
+			transactionEvidence.ID,
+		)
+		if err != nil {
+			log.Print(err)
 
-	_, err = tx.Exec("UPDATE `transaction_evidences` SET `status` = ?, `updated_at` = ? WHERE `id` = ?",
-		TransactionEvidenceStatusDone,
-		time.Now(),
-		transactionEvidence.ID,
-	)
-	if err != nil {
-		log.Print(err)
+			outputErrorMsg(w, http.StatusInternalServerError, "db error")
+			return err
+		}
+		return nil
+	})
 
-		outputErrorMsg(w, http.StatusInternalServerError, "db error")
-		tx.Rollback()
-		return
-	}
+	eg.Go(func() error {
+		_, err = tx.Exec("UPDATE `transaction_evidences` SET `status` = ?, `updated_at` = ? WHERE `id` = ?",
+			TransactionEvidenceStatusDone,
+			time.Now(),
+			transactionEvidence.ID,
+		)
+		if err != nil {
+			log.Print(err)
 
-	_, err = tx.Exec("UPDATE `items` SET `status` = ?, `updated_at` = ? WHERE `id` = ?",
-		ItemStatusSoldOut,
-		time.Now(),
-		itemID,
-	)
-	if err != nil {
-		log.Print(err)
+			outputErrorMsg(w, http.StatusInternalServerError, "db error")
+			return err
+		}
+		return nil
+	})
 
-		outputErrorMsg(w, http.StatusInternalServerError, "db error")
+	eg.Go(func() error {
+		_, err = tx.Exec("UPDATE `items` SET `status` = ?, `updated_at` = ? WHERE `id` = ?",
+			ItemStatusSoldOut,
+			time.Now(),
+			itemID,
+		)
+		if err != nil {
+			log.Print(err)
+
+			outputErrorMsg(w, http.StatusInternalServerError, "db error")
+			return err
+		}
+		return nil
+	})
+
+	if err := eg.Wait(); err != nil {
 		tx.Rollback()
 		return
 	}
