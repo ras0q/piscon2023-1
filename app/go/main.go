@@ -1953,8 +1953,6 @@ func postComplete(w http.ResponseWriter, r *http.Request) {
 	})
 
 	if err := eg.Wait(); err != nil {
-		log.Print(err)
-		outputErrorMsg(w, http.StatusInternalServerError, "db error")
 		tx.Rollback()
 		return
 	}
